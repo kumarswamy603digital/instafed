@@ -112,8 +112,6 @@ export async function searchAccounts(query: string): Promise<IgAccount[]> {
     search: q,
     searchType: "user",
     searchLimit,
-    resultsType: "details",
-    resultsLimit: 0,
   };
 
   const items = await runActor<any>(actorId, token, input);

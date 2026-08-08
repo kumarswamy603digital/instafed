@@ -111,6 +111,7 @@ export function TubeFeedApp() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<IgAccount[] | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [searchBusy, setSearchBusy] = useState<string | null>(null);
   const searchAbort = useRef<AbortController | null>(null);
@@ -121,6 +122,7 @@ export function TubeFeedApp() {
     const q = searchQuery.trim();
     if (q.length < MIN_CHARS) {
       setSearchResults(null);
+      setSearchError(null);
       setSearchLoading(false);
       return;
     }
@@ -130,15 +132,25 @@ export function TubeFeedApp() {
       const controller = new AbortController();
       searchAbort.current = controller;
       setSearchLoading(true);
+      setSearchError(null);
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
           signal: controller.signal,
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (searchLatest.current !== q) return;
+        if (!res.ok) {
+          throw new Error(data.error || `Search failed (HTTP ${res.status}).`);
+        }
         setSearchResults((data.accounts as IgAccount[]) ?? []);
       } catch (err) {
-        if ((err as Error)?.name !== "AbortError") setSearchResults([]);
+        if ((err as Error)?.name === "AbortError") return;
+        if (searchLatest.current === q) {
+          setSearchResults([]);
+          setSearchError(
+            err instanceof Error ? err.message : "Search failed.",
+          );
+        }
       } finally {
         if (searchLatest.current === q) setSearchLoading(false);
       }
@@ -448,6 +460,7 @@ export function TubeFeedApp() {
               query={searchQuery.trim()}
               results={searchResults}
               loading={searchLoading}
+              error={searchError}
               subscribedSet={subscribedSet}
               busyUser={searchBusy}
               onSubscribe={subscribeFromSearch}

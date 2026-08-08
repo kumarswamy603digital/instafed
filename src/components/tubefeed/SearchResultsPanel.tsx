@@ -8,6 +8,7 @@ export function SearchResultsPanel({
   query,
   results,
   loading,
+  error,
   subscribedSet,
   busyUser,
   onSubscribe,
@@ -16,6 +17,7 @@ export function SearchResultsPanel({
   query: string;
   results: IgAccount[] | null;
   loading: boolean;
+  error?: string | null;
   subscribedSet: Set<string>;
   busyUser: string | null;
   onSubscribe: (acc: IgAccount) => void;
@@ -50,10 +52,27 @@ export function SearchResultsPanel({
                 <div className="skeleton h-8 w-24 shrink-0 rounded-lg" />
               </div>
             ))
+          ) : error ? (
+            <div className="px-5 py-10 text-center">
+              <p className="mx-auto max-w-md text-sm text-red-300">
+                Couldn&apos;t search Instagram: {error}
+              </p>
+              <p className="mx-auto mt-3 max-w-md text-xs text-neutral-500">
+                This usually means the Apify token is missing/invalid, you&apos;re
+                out of Apify credits, or the actor hit a rate limit or timeout.
+                Check your <code className="text-neutral-300">APIFY_TOKEN</code> and
+                Apify usage, then try again.
+              </p>
+            </div>
           ) : results && results.length === 0 ? (
-            <p className="px-5 py-12 text-center text-neutral-500">
-              No accounts found for “{query}”.
-            </p>
+            <div className="px-5 py-12 text-center">
+              <p className="text-neutral-400">No accounts found for “{query}”.</p>
+              <p className="mx-auto mt-2 max-w-md text-xs text-neutral-500">
+                Try the exact @username instead of the full name (e.g. type
+                <span className="text-neutral-300"> nileshhada</span> rather than
+                “Nilesh Hada”). Instagram ranks handles more reliably than names.
+              </p>
+            </div>
           ) : (
             results?.map((acc) => {
               const subbed = subscribedSet.has(acc.username);
