@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { IgVideo } from "@/lib/types";
 import { formatCount, timeAgo } from "@/lib/format";
+import { proxied } from "@/lib/image";
 
 export function VideoModal({
   video,
@@ -48,7 +49,7 @@ export function VideoModal({
           {video.videoUrl ? (
             <video
               src={video.videoUrl}
-              poster={video.thumbnailUrl || undefined}
+              poster={proxied(video.thumbnailUrl) || undefined}
               controls
               autoPlay
               playsInline

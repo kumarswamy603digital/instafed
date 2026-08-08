@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { proxied } from "@/lib/image";
 
 /** Circular avatar with graceful fallback to an initial when the image fails. */
 export function Avatar({
@@ -14,8 +15,9 @@ export function Avatar({
 }) {
   const [errored, setErrored] = useState(false);
   const initial = alt?.charAt(0)?.toUpperCase() || "?";
+  const imgSrc = proxied(src);
 
-  if (!src || errored) {
+  if (!imgSrc || errored) {
     return (
       <div
         className="rounded-full bg-instagram-gradient flex items-center justify-center font-bold text-white shrink-0"
@@ -29,7 +31,7 @@ export function Avatar({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={imgSrc}
       alt={alt}
       width={size}
       height={size}

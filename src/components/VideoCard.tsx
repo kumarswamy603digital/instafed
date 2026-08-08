@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { IgVideo } from "@/lib/types";
 import { formatCount, formatDuration, timeAgo } from "@/lib/format";
+import { proxied } from "@/lib/image";
 
 export function VideoCard({
   video,
@@ -22,7 +23,7 @@ export function VideoCard({
       {video.thumbnailUrl && !imgError ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={video.thumbnailUrl}
+          src={proxied(video.thumbnailUrl) || undefined}
           alt={video.caption || "video thumbnail"}
           referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
