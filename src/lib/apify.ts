@@ -3,11 +3,25 @@ import { mockSearchAccounts, mockVideosFor } from "./mock-data";
 
 const APIFY_BASE = "https://api.apify.com/v2";
 
+// When we want "all" videos we ask the actor for a very large number of
+// results; real Instagram profiles have far fewer posts than this, so it
+// effectively means "scrape everything".
+const UNLIMITED_RESULTS = 1_000_000;
+
 function getConfig() {
   const token = process.env.APIFY_TOKEN?.trim() || "";
   const actorId = process.env.APIFY_ACTOR_ID?.trim() || "apify~instagram-scraper";
   const searchLimit = Number(process.env.APIFY_SEARCH_LIMIT || "20") || 20;
-  const videosLimit = Number(process.env.APIFY_VIDEOS_LIMIT || "50") || 50;
+
+  // videosLimit === 0 means "unlimited" (fetch every video). This is the
+  // default. Users can set APIFY_VIDEOS_LIMIT to a positive number to cap it.
+  const rawVideos = (process.env.APIFY_VIDEOS_LIMIT ?? "").trim().toLowerCase();
+  let videosLimit = 0;
+  if (rawVideos && rawVideos !== "0" && rawVideos !== "unlimited" && rawVideos !== "all") {
+    const n = Number(rawVideos);
+    videosLimit = Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
   const mock =
     process.env.MOCK_APIFY?.toLowerCase() === "true" || token.length === 0;
   return { token, actorId, searchLimit, videosLimit, mock };
@@ -170,13 +184,13 @@ export async function getAccountVideos(username: string): Promise<IgVideo[]> {
   if (!uname) return [];
 
   const { token, actorId, videosLimit, mock } = getConfig();
-  if (mock) return mockVideosFor(uname, videosLimit);
+  // 0 => unlimited. Mock generates a sensible sample count when unlimited.
+  if (mock) return mockVideosFor(uname, videosLimit > 0 ? videosLimit : 24);
 
   const input = {
     directUrls: [`https://www.instagram.com/${uname}/`],
     resultsType: "posts",
-    resultsLimit: videosLimit,
-    onlyPostsNewerThan: undefined,
+    resultsLimit: videosLimit > 0 ? videosLimit : UNLIMITED_RESULTS,
   };
 
   const items = await runActor<any>(actorId, token, input);

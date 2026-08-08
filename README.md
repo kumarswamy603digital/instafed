@@ -41,6 +41,10 @@ Then edit `.env`:
 - `APIFY_TOKEN` — your token from Apify Console → Settings → Integrations
 - (optional) `APIFY_ACTOR_ID`, `APIFY_SEARCH_LIMIT`, `APIFY_VIDEOS_LIMIT`
 
+> By default the app fetches **every** video for an account. Set
+> `APIFY_VIDEOS_LIMIT` to a positive number only if you want to cap it
+> (leaving it empty / `0` / `unlimited` means no limit).
+
 > **No Apify token yet?** Leave `APIFY_TOKEN` empty (or set `MOCK_APIFY="true"`)
 > and the app serves realistic **mock data** so you can explore the whole UI —
 > including playable sample videos — without spending Apify credits.
