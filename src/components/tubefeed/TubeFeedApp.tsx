@@ -2,20 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
-import type { IgAccount, IgVideo, SubscriptionDTO } from "@/lib/types";
+import type {
+  IgAccount,
+  IgVideo,
+  SectionDTO,
+  SubscriptionDTO,
+} from "@/lib/types";
 import { Avatar, VerifiedBadge } from "../ui";
 import { VideoModal } from "../VideoModal";
 import { FeedCard, type FeedChannel } from "./FeedCard";
+import { SectionModal } from "./SectionModal";
 
 type FeedVideo = { video: IgVideo; channel: FeedChannel };
+type View =
+  | { type: "all" }
+  | { type: "channel"; username: string }
+  | { type: "section"; id: string };
 
 const DEBOUNCE_MS = 400;
 const MIN_CHARS = 2;
 
-/**
- * Read an image File and return a downscaled JPEG data URL — keeps the OCR
- * payload small and fast without losing legibility.
- */
 async function fileToDownscaledDataUrl(
   file: File,
   maxDim = 1400,
@@ -46,23 +52,26 @@ async function fileToDownscaledDataUrl(
     ctx.drawImage(img, 0, 0, w, h);
     return canvas.toDataURL("image/jpeg", quality);
   } catch {
-    return dataUrl; // fall back to original if canvas fails
+    return dataUrl;
   }
 }
 
 export function TubeFeedApp() {
   const { data: sessionData } = useSession();
-  const userName =
-    sessionData?.user?.name || sessionData?.user?.email || "You";
+  const userName = sessionData?.user?.name || sessionData?.user?.email || "You";
 
   const [subs, setSubs] = useState<SubscriptionDTO[] | null>(null);
-  const [selected, setSelected] = useState<string | null>(null); // username or null=All
+  const [sections, setSections] = useState<SectionDTO[]>([]);
+  const [view, setView] = useState<View>({ type: "all" });
   const [tab, setTab] = useState<"videos" | "reels">("videos");
 
   const [feed, setFeed] = useState<FeedVideo[]>([]);
   const [feedLoading, setFeedLoading] = useState(false);
   const [active, setActive] = useState<IgVideo | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const [sectionModalOpen, setSectionModalOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<SectionDTO | null>(null);
 
   const videosCache = useRef<Map<string, IgVideo[]>>(new Map());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,9 +90,16 @@ export function TubeFeedApp() {
     setSubs(data.subscriptions ?? []);
   }, []);
 
+  const refreshSections = useCallback(async () => {
+    const res = await fetch("/api/sections");
+    const data = await res.json().catch(() => ({ sections: [] }));
+    setSections(data.sections ?? []);
+  }, []);
+
   useEffect(() => {
     refreshSubs();
-  }, [refreshSubs]);
+    refreshSections();
+  }, [refreshSubs, refreshSections]);
 
   const channelFor = useCallback(
     (username: string): FeedChannel => {
@@ -118,12 +134,21 @@ export function TubeFeedApp() {
     [],
   );
 
-  // Load the feed whenever the subscription set or selected channel changes.
+  // Load feed based on the current view (all / channel / section).
   useEffect(() => {
     if (subs === null) return;
     let cancelled = false;
 
-    const targets = selected ? [selected] : subs.map((s) => s.igUsername);
+    let targets: string[];
+    if (view.type === "channel") {
+      targets = [view.username];
+    } else if (view.type === "section") {
+      const sec = sections.find((s) => s.id === view.id);
+      targets = sec ? sec.channelUsernames : [];
+    } else {
+      targets = subs.map((s) => s.igUsername);
+    }
+
     if (targets.length === 0) {
       setFeed([]);
       setFeedLoading(false);
@@ -154,7 +179,7 @@ export function TubeFeedApp() {
     return () => {
       cancelled = true;
     };
-  }, [subs, selected, fetchChannelVideos, channelFor]);
+  }, [subs, sections, view, fetchChannelVideos, channelFor]);
 
   async function subscribe(acc: IgAccount) {
     await fetch("/api/subscriptions", {
@@ -175,18 +200,34 @@ export function TubeFeedApp() {
   async function unsubscribe(sub: SubscriptionDTO) {
     await fetch(`/api/subscriptions/${sub.id}`, { method: "DELETE" });
     videosCache.current.delete(sub.igUsername);
-    if (selected === sub.igUsername) setSelected(null);
+    if (view.type === "channel" && view.username === sub.igUsername) {
+      setView({ type: "all" });
+    }
     await refreshSubs();
+    await refreshSections();
   }
 
-  // Client-side tab filter (Reels = short, Videos = long/unknown).
+  function openCreateSection() {
+    setEditingSection(null);
+    setSectionModalOpen(true);
+  }
+  function openEditSection(sec: SectionDTO) {
+    setEditingSection(sec);
+    setSectionModalOpen(true);
+  }
+
   const isReel = (v: IgVideo) =>
     v.durationSeconds != null && v.durationSeconds <= 90;
   const displayed = feed.filter((f) =>
     tab === "reels" ? isReel(f.video) : !isReel(f.video),
   );
 
-  const sectionTitle = selected ? `@${selected}` : "All";
+  const sectionTitle =
+    view.type === "channel"
+      ? `@${view.username}`
+      : view.type === "section"
+      ? sections.find((s) => s.id === view.id)?.name ?? "Section"
+      : "All";
 
   return (
     <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
@@ -195,19 +236,28 @@ export function TubeFeedApp() {
         subscribedSet={subscribedSet}
         onSubscribe={subscribe}
         onToast={showToast}
+        onNewSection={openCreateSection}
       />
 
       <div className="flex min-h-0 flex-1">
         <Sidebar
           subs={subs}
-          selected={selected}
-          onSelect={(u) => setSelected(u)}
+          view={view}
+          onSelectChannel={(u) => setView({ type: "channel", username: u })}
+          onSelectAll={() => setView({ type: "all" })}
           onUnsubscribe={unsubscribe}
         />
 
-        {/* Main */}
         <main className="min-w-0 flex-1 overflow-y-auto">
-          <ChipBar onToast={showToast} />
+          <ChipBar
+            sections={sections}
+            view={view}
+            onSelectAll={() => setView({ type: "all" })}
+            onSelectSection={(id) => setView({ type: "section", id })}
+            onEditSection={openEditSection}
+            onNewSection={openCreateSection}
+            onToast={showToast}
+          />
 
           <div className="px-6 py-5">
             <div className="flex items-center justify-between gap-4">
@@ -229,22 +279,22 @@ export function TubeFeedApp() {
               </div>
             </div>
 
-            {/* Feed states */}
             {subs !== null && subs.length === 0 ? (
               <EmptyState onToast={showToast} />
+            ) : view.type === "section" &&
+              (sections.find((s) => s.id === view.id)?.channelUsernames.length ??
+                0) === 0 ? (
+              <SectionEmpty
+                onEdit={() => {
+                  const sec = sections.find((s) => s.id === view.id);
+                  if (sec) openEditSection(sec);
+                }}
+              />
             ) : feedLoading && displayed.length === 0 ? (
-              <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i}>
-                    <div className="aspect-video w-full animate-pulse rounded-xl bg-neutral-900" />
-                    <div className="mt-2.5 h-4 w-4/5 animate-pulse rounded bg-neutral-900" />
-                    <div className="mt-1.5 h-3 w-1/2 animate-pulse rounded bg-neutral-900/70" />
-                  </div>
-                ))}
-              </div>
+              <FeedSkeleton />
             ) : displayed.length === 0 ? (
               <p className="mt-16 text-center text-neutral-500">
-                No {tab} to show{selected ? ` for @${selected}` : ""}.
+                No {tab} to show here.
               </p>
             ) : (
               <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -259,7 +309,7 @@ export function TubeFeedApp() {
                       channel={f.channel}
                       onOpen={() => setActive(f.video)}
                       onAddToPlaylist={() =>
-                        showToast("Playlists are coming in a later step")
+                        showToast("Playlists are coming in the next step")
                       }
                     />
                   </div>
@@ -272,11 +322,37 @@ export function TubeFeedApp() {
 
       {active && <VideoModal video={active} onClose={() => setActive(null)} />}
 
+      <SectionModal
+        open={sectionModalOpen}
+        initial={editingSection}
+        subs={subs ?? []}
+        onClose={() => setSectionModalOpen(false)}
+        onSaved={refreshSections}
+        onDeleted={(id) => {
+          if (view.type === "section" && view.id === id) setView({ type: "all" });
+          refreshSections();
+        }}
+      />
+
       {toast && (
         <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 animate-fade-up rounded-full border border-white/10 bg-neutral-800 px-4 py-2 text-sm shadow-xl">
           {toast}
         </div>
       )}
+    </div>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i}>
+          <div className="aspect-video w-full animate-pulse rounded-xl bg-neutral-900" />
+          <div className="mt-2.5 h-4 w-4/5 animate-pulse rounded bg-neutral-900" />
+          <div className="mt-1.5 h-3 w-1/2 animate-pulse rounded bg-neutral-900/70" />
+        </div>
+      ))}
     </div>
   );
 }
@@ -290,11 +366,13 @@ function TopBar({
   subscribedSet,
   onSubscribe,
   onToast,
+  onNewSection,
 }: {
   userName: string;
   subscribedSet: Set<string>;
   onSubscribe: (acc: IgAccount) => Promise<void>;
   onToast: (msg: string) => void;
+  onNewSection: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<IgAccount[] | null>(null);
@@ -320,7 +398,7 @@ function TopBar({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not read the image.");
       if (data.query) {
-        setQuery(data.query); // triggers the debounced search
+        setQuery(data.query);
         setOpen(true);
         onToast(`Detected "${data.query}" — searching…`);
       } else {
@@ -384,7 +462,6 @@ function TopBar({
 
   return (
     <header className="z-30 flex h-16 items-center gap-4 border-b border-neutral-800 bg-neutral-950/90 px-4 backdrop-blur">
-      {/* Logo */}
       <div className="flex items-center gap-2">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-instagram-gradient text-lg font-black">
           I
@@ -397,7 +474,6 @@ function TopBar({
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative mx-auto w-full max-w-xl">
         <div className="flex items-center rounded-full border border-neutral-700 bg-neutral-900 focus-within:border-brand">
           <span className="pl-4 text-neutral-500">@</span>
@@ -410,7 +486,6 @@ function TopBar({
             className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
           />
 
-          {/* Hidden file input for screenshot upload */}
           <input
             ref={fileInputRef}
             type="file"
@@ -422,7 +497,6 @@ function TopBar({
             }}
           />
 
-          {/* Upload screenshot (OCR) button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -452,7 +526,6 @@ function TopBar({
           </span>
         </div>
 
-        {/* Results dropdown */}
         {open && results && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
@@ -509,10 +582,9 @@ function TopBar({
         )}
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-2">
-        <ActionButton label="New Section" onClick={() => onToast("Sections are coming in a later step")} />
-        <ActionButton label="New Playlist" onClick={() => onToast("Playlists are coming in a later step")} />
+        <ActionButton label="New Section" onClick={onNewSection} />
+        <ActionButton label="New Playlist" onClick={() => onToast("Playlists are coming in the next step")} />
         <ActionButton label="History" onClick={() => onToast("History is coming in a later step")} />
         <div className="mx-1 h-6 w-px bg-neutral-800" />
         <div className="group relative">
@@ -561,21 +633,23 @@ function ActionButton({
 
 function Sidebar({
   subs,
-  selected,
-  onSelect,
+  view,
+  onSelectChannel,
+  onSelectAll,
   onUnsubscribe,
 }: {
   subs: SubscriptionDTO[] | null;
-  selected: string | null;
-  onSelect: (username: string | null) => void;
+  view: View;
+  onSelectChannel: (username: string) => void;
+  onSelectAll: () => void;
   onUnsubscribe: (sub: SubscriptionDTO) => void;
 }) {
   return (
     <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-neutral-800 bg-neutral-950/50 py-4 md:block">
       <button
-        onClick={() => onSelect(null)}
+        onClick={onSelectAll}
         className={`mb-1 flex w-full items-center gap-2 px-5 py-2 text-sm font-medium transition ${
-          selected === null ? "text-white" : "text-neutral-400 hover:text-white"
+          view.type === "all" ? "text-white" : "text-neutral-400 hover:text-white"
         }`}
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -604,7 +678,8 @@ function Sidebar({
       ) : (
         <ul className="px-2">
           {subs.map((s) => {
-            const activeRow = selected === s.igUsername;
+            const activeRow =
+              view.type === "channel" && view.username === s.igUsername;
             return (
               <li key={s.id} className="group/row">
                 <div
@@ -613,7 +688,7 @@ function Sidebar({
                   }`}
                 >
                   <button
-                    onClick={() => onSelect(s.igUsername)}
+                    onClick={() => onSelectChannel(s.igUsername)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
                     <Avatar
@@ -651,56 +726,101 @@ function Sidebar({
 /*                                 CHIP BAR                                    */
 /* -------------------------------------------------------------------------- */
 
-function ChipBar({ onToast }: { onToast: (msg: string) => void }) {
+function ChipBar({
+  sections,
+  view,
+  onSelectAll,
+  onSelectSection,
+  onEditSection,
+  onNewSection,
+  onToast,
+}: {
+  sections: SectionDTO[];
+  view: View;
+  onSelectAll: () => void;
+  onSelectSection: (id: string) => void;
+  onEditSection: (sec: SectionDTO) => void;
+  onNewSection: () => void;
+  onToast: (msg: string) => void;
+}) {
   return (
     <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-neutral-800 bg-neutral-950/90 px-6 py-2.5 backdrop-blur">
-      <div className="flex rounded-full border border-neutral-800 bg-neutral-900 p-0.5 text-xs">
+      <div className="flex shrink-0 rounded-full border border-neutral-800 bg-neutral-900 p-0.5 text-xs">
         <span className="rounded-full bg-white px-3 py-1 font-medium text-neutral-900">
           Sections
         </span>
         <button
-          onClick={() => onToast("Playlists are coming in a later step")}
+          onClick={() => onToast("Playlists are coming in the next step")}
           className="rounded-full px-3 py-1 font-medium text-neutral-400 hover:text-white"
         >
           Playlists
         </button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto">
-        <Chip active>All</Chip>
-        <Chip onClick={() => onToast("Pinned is coming in a later step")}>
+      <div className="flex items-center gap-2 overflow-x-auto">
+        <button
+          onClick={onSelectAll}
+          className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition ${
+            view.type === "all"
+              ? "bg-white text-neutral-900"
+              : "border border-neutral-800 text-neutral-300 hover:bg-white/5"
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => onToast("Pinned is coming in a later step")}
+          className="whitespace-nowrap rounded-full border border-neutral-800 px-3 py-1 text-xs font-medium text-neutral-300 transition hover:bg-white/5"
+        >
           📌 Pinned
-        </Chip>
+        </button>
+
+        {sections.map((sec) => {
+          const activeSec = view.type === "section" && view.id === sec.id;
+          return (
+            <span
+              key={sec.id}
+              className={`inline-flex items-center whitespace-nowrap rounded-full text-xs font-medium transition ${
+                activeSec
+                  ? "bg-white text-neutral-900"
+                  : "border border-neutral-800 text-neutral-300 hover:bg-white/5"
+              }`}
+            >
+              <button
+                onClick={() => onSelectSection(sec.id)}
+                className="py-1 pl-3 pr-1.5"
+              >
+                {sec.name}
+              </button>
+              {activeSec && (
+                <button
+                  onClick={() => onEditSection(sec)}
+                  title="Edit section"
+                  className="pr-2 text-neutral-500 hover:text-neutral-900"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              )}
+            </span>
+          );
+        })}
+
+        <button
+          onClick={onNewSection}
+          title="New section"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-neutral-700 text-neutral-400 transition hover:border-brand hover:text-white"
+        >
+          +
+        </button>
       </div>
     </div>
   );
 }
 
-function Chip({
-  children,
-  active,
-  onClick,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition ${
-        active
-          ? "bg-white text-neutral-900"
-          : "border border-neutral-800 text-neutral-300 hover:bg-white/5"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
-/*                                EMPTY STATE                                  */
+/*                                EMPTY STATES                                 */
 /* -------------------------------------------------------------------------- */
 
 function EmptyState({ onToast }: { onToast: (msg: string) => void }) {
@@ -722,6 +842,24 @@ function EmptyState({ onToast }: { onToast: (msg: string) => void }) {
         className="mt-6 rounded-xl bg-brand px-6 py-2.5 font-semibold hover:bg-brand-dark"
       >
         Find accounts
+      </button>
+    </div>
+  );
+}
+
+function SectionEmpty({ onEdit }: { onEdit: () => void }) {
+  return (
+    <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+      <h2 className="text-xl font-semibold">This section has no channels yet</h2>
+      <p className="mt-2 max-w-md text-sm text-neutral-400">
+        Add some of your subscribed accounts to this section to see their videos
+        here.
+      </p>
+      <button
+        onClick={onEdit}
+        className="mt-6 rounded-xl bg-brand px-6 py-2.5 font-semibold hover:bg-brand-dark"
+      >
+        Add channels
       </button>
     </div>
   );

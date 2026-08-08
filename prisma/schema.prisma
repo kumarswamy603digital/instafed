@@ -18,6 +18,7 @@ model User {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   subscriptions Subscription[]
+  sections      Section[]
 }
 
 model Subscription {
@@ -34,7 +35,36 @@ model Subscription {
 
   createdAt    DateTime @default(now())
 
+  sectionLinks SectionChannel[]
+
   // A user can only subscribe to a given handle once.
   @@unique([userId, igUsername])
   @@index([userId])
+}
+
+// A user-defined category that groups a subset of their subscribed channels.
+model Section {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  position  Int              @default(0)
+  createdAt DateTime         @default(now())
+
+  channels  SectionChannel[]
+
+  @@index([userId])
+}
+
+// Join table: which subscriptions belong to which section (many-to-many).
+model SectionChannel {
+  id             String       @id @default(cuid())
+  sectionId      String
+  section        Section      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([sectionId, subscriptionId])
+  @@index([sectionId])
+  @@index([subscriptionId])
 }

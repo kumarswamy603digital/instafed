@@ -35,3 +35,13 @@ export interface SubscriptionDTO {
   igIsPrivate: boolean;
   createdAt: string;
 }
+
+
+/** A user-defined section grouping a subset of subscribed channels. */
+export interface SectionDTO {
+  id: string;
+  name: string;
+  position: number;
+  subscriptionIds: string[];
+  channelUsernames: string[];
+}
