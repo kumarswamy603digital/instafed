@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "prisma generate && prisma db push --skip-generate",
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
+    "setup": "prisma generate && prisma db push",
     "db:push": "prisma db push",
     "db:studio": "prisma studio"
   },
