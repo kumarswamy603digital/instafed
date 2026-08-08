@@ -1,0 +1,40 @@
+// Prisma schema for InstaFed
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Instagram account details captured at subscribe time.
+  igUsername   String
+  igFullName   String?
+  igProfilePic String?
+  igIsVerified Boolean  @default(false)
+  igIsPrivate  Boolean  @default(false)
+
+  createdAt    DateTime @default(now())
+
+  // A user can only subscribe to a given handle once.
+  @@unique([userId, igUsername])
+  @@index([userId])
+}
