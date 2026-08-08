@@ -15,6 +15,7 @@ import { FeedCard, type FeedChannel } from "./FeedCard";
 import { SectionModal } from "./SectionModal";
 import { PlaylistsView } from "./PlaylistsView";
 import { AddToPlaylistModal } from "./AddToPlaylistModal";
+import { SearchResultsPanel } from "./SearchResultsPanel";
 
 type FeedVideo = { video: IgVideo; channel: FeedChannel };
 type View =
@@ -105,6 +106,76 @@ export function TubeFeedApp() {
   const [pinned, setPinned] = useState<FeedVideo[]>([]);
   const [history, setHistory] = useState<FeedVideo[] | null>(null);
   const pinnedKeys = new Set(pinned.map((p) => p.video.id));
+
+  // ---- Search (lifted here so results render in the main content area) ----
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<IgAccount[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [searchBusy, setSearchBusy] = useState<string | null>(null);
+  const searchAbort = useRef<AbortController | null>(null);
+  const searchLatest = useRef("");
+  const searchActive = searchQuery.trim().length >= MIN_CHARS;
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < MIN_CHARS) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      searchLatest.current = q;
+      searchAbort.current?.abort();
+      const controller = new AbortController();
+      searchAbort.current = controller;
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+          signal: controller.signal,
+        });
+        const data = await res.json();
+        if (searchLatest.current !== q) return;
+        setSearchResults((data.accounts as IgAccount[]) ?? []);
+      } catch (err) {
+        if ((err as Error)?.name !== "AbortError") setSearchResults([]);
+      } finally {
+        if (searchLatest.current === q) setSearchLoading(false);
+      }
+    }, DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  async function handleImageFile(file: File | null | undefined) {
+    if (!file || !file.type.startsWith("image/")) return;
+    setOcrLoading(true);
+    showToast("Reading account from image…");
+    try {
+      const imageBase64 = await fileToDownscaledDataUrl(file);
+      const res = await fetch("/api/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not read the image.");
+      if (data.query) {
+        setSearchQuery(data.query);
+        showToast(`Detected "${data.query}" — searching…`);
+      } else {
+        showToast("No account name found in that image.");
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Could not read the image.");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
+  function closeSearch() {
+    setSearchQuery("");
+    setSearchResults(null);
+  }
 
   const videosCache = useRef<Map<string, IgVideo[]>>(new Map());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -279,6 +350,15 @@ export function TubeFeedApp() {
     showToast(`Subscribed to @${acc.username}`);
   }
 
+  async function subscribeFromSearch(acc: IgAccount) {
+    setSearchBusy(acc.username);
+    try {
+      await subscribe(acc);
+    } finally {
+      setSearchBusy(null);
+    }
+  }
+
   async function unsubscribe(sub: SubscriptionDTO) {
     await fetch(`/api/subscriptions/${sub.id}`, { method: "DELETE" });
     videosCache.current.delete(sub.igUsername);
@@ -321,9 +401,11 @@ export function TubeFeedApp() {
     <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
       <TopBar
         userName={userName}
-        subscribedSet={subscribedSet}
-        onSubscribe={subscribe}
-        onToast={showToast}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        onImageFile={handleImageFile}
+        searchLoading={searchLoading}
+        ocrLoading={ocrLoading}
         onNewSection={openCreateSection}
         onNewPlaylist={() => {
           setMode("playlists");
@@ -359,7 +441,17 @@ export function TubeFeedApp() {
             onToast={showToast}
           />
 
-          {mode === "playlists" ? (
+          {searchActive ? (
+            <SearchResultsPanel
+              query={searchQuery.trim()}
+              results={searchResults}
+              loading={searchLoading}
+              subscribedSet={subscribedSet}
+              busyUser={searchBusy}
+              onSubscribe={subscribeFromSearch}
+              onClose={closeSearch}
+            />
+          ) : mode === "playlists" ? (
             <PlaylistsView
               focusCreateNonce={playlistFocusNonce}
               onOpenVideo={openVideo}
@@ -587,58 +679,28 @@ function HistoryView({
 
 function TopBar({
   userName,
-  subscribedSet,
-  onSubscribe,
-  onToast,
+  query,
+  onQueryChange,
+  onImageFile,
+  searchLoading,
+  ocrLoading,
   onNewSection,
   onNewPlaylist,
   onViewPlaylists,
+  onOpenHistory,
 }: {
   userName: string;
-  subscribedSet: Set<string>;
-  onSubscribe: (acc: IgAccount) => Promise<void>;
-  onToast: (msg: string) => void;
+  query: string;
+  onQueryChange: (v: string) => void;
+  onImageFile: (file: File | null | undefined) => void;
+  searchLoading: boolean;
+  ocrLoading: boolean;
   onNewSection: () => void;
   onNewPlaylist: () => void;
   onViewPlaylists: () => void;
   onOpenHistory: () => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<IgAccount[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [ocrLoading, setOcrLoading] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
-  const latest = useRef("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  async function handleImageFile(file: File | null | undefined) {
-    if (!file || !file.type.startsWith("image/")) return;
-    setOcrLoading(true);
-    onToast("Reading account from image…");
-    try {
-      const imageBase64 = await fileToDownscaledDataUrl(file);
-      const res = await fetch("/api/ocr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64 }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not read the image.");
-      if (data.query) {
-        setQuery(data.query);
-        setOpen(true);
-        onToast(`Detected "${data.query}" — searching…`);
-      } else {
-        onToast("No account name found in that image.");
-      }
-    } catch (err) {
-      onToast(err instanceof Error ? err.message : "Could not read the image.");
-    } finally {
-      setOcrLoading(false);
-    }
-  }
 
   function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
     const item = Array.from(e.clipboardData.items).find((i) =>
@@ -646,46 +708,7 @@ function TopBar({
     );
     if (item) {
       e.preventDefault();
-      handleImageFile(item.getAsFile());
-    }
-  }
-
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < MIN_CHARS) {
-      setResults(null);
-      setLoading(false);
-      return;
-    }
-    const t = setTimeout(async () => {
-      latest.current = q;
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-        });
-        const data = await res.json();
-        if (latest.current !== q) return;
-        setResults((data.accounts as IgAccount[]) ?? []);
-        setOpen(true);
-      } catch (err) {
-        if ((err as Error)?.name !== "AbortError") setResults([]);
-      } finally {
-        if (latest.current === q) setLoading(false);
-      }
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  async function handleSubscribe(acc: IgAccount) {
-    setBusy(acc.username);
-    try {
-      await onSubscribe(acc);
-    } finally {
-      setBusy(null);
+      onImageFile(item.getAsFile());
     }
   }
 
@@ -708,8 +731,7 @@ function TopBar({
           <span className="pl-5 text-neutral-500">@</span>
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => results && setOpen(true)}
+            onChange={(e) => onQueryChange(e.target.value)}
             onPaste={handlePaste}
             placeholder="Search an account, or paste a profile screenshot"
             className="w-full bg-transparent px-3 py-3 text-[15px] outline-none"
@@ -721,7 +743,7 @@ function TopBar({
             accept="image/*"
             className="hidden"
             onChange={(e) => {
-              handleImageFile(e.target.files?.[0]);
+              onImageFile(e.target.files?.[0]);
               e.target.value = "";
             }}
           />
@@ -744,7 +766,7 @@ function TopBar({
           </button>
 
           <span className="flex h-10 w-11 items-center justify-center border-l border-neutral-800">
-            {loading ? (
+            {searchLoading ? (
               <span className="h-[18px] w-[18px] animate-spin rounded-full border-2 border-neutral-600 border-t-brand" />
             ) : (
               <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] text-neutral-400" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -755,60 +777,6 @@ function TopBar({
           </span>
         </div>
 
-        {open && results && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-            <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-neutral-800 bg-neutral-900 p-2 shadow-2xl">
-              {results.length === 0 ? (
-                <p className="px-3 py-6 text-center text-sm text-neutral-500">
-                  No accounts found.
-                </p>
-              ) : (
-                results.map((acc) => {
-                  const subbed = subscribedSet.has(acc.username);
-                  return (
-                    <div
-                      key={acc.username}
-                      className="flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-white/5"
-                    >
-                      <Avatar
-                        src={acc.profilePicUrl}
-                        alt={acc.fullName || acc.username}
-                        size={40}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1">
-                          <span className="truncate text-sm font-medium">
-                            {acc.fullName || acc.username}
-                          </span>
-                          {acc.isVerified && <VerifiedBadge />}
-                        </div>
-                        <p className="truncate text-xs text-neutral-400">
-                          @{acc.username}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => !subbed && handleSubscribe(acc)}
-                        disabled={subbed || busy === acc.username}
-                        className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                          subbed
-                            ? "border border-neutral-700 text-neutral-400"
-                            : "bg-brand hover:bg-brand-dark"
-                        } disabled:opacity-60`}
-                      >
-                        {busy === acc.username
-                          ? "…"
-                          : subbed
-                          ? "Subscribed"
-                          : "Subscribe"}
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </>
-        )}
       </div>
 
       <div className="flex items-center gap-2.5">
