@@ -57,12 +57,12 @@ export function SubscriptionsClient() {
           <Avatar src={s.igProfilePic} alt={s.igUsername} size={56} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
-              <span className="font-semibold truncate">@{s.igUsername}</span>
+              <span className="font-semibold truncate">
+                {s.igFullName || s.igUsername}
+              </span>
               {s.igIsVerified && <VerifiedBadge />}
             </div>
-            {s.igFullName && (
-              <p className="text-sm text-neutral-400 truncate">{s.igFullName}</p>
-            )}
+            <p className="text-sm text-neutral-400 truncate">@{s.igUsername}</p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <Link

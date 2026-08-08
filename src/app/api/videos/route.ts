@@ -33,7 +33,16 @@ export async function GET(req: Request) {
 
   try {
     const videos = await getAccountVideos(username);
-    return NextResponse.json({ videos, mock: isMockMode() });
+    return NextResponse.json({
+      videos,
+      mock: isMockMode(),
+      account: {
+        username: sub.igUsername,
+        fullName: sub.igFullName,
+        profilePic: sub.igProfilePic,
+        isVerified: sub.igIsVerified,
+      },
+    });
   } catch (err) {
     console.error("videos error", err);
     return NextResponse.json(

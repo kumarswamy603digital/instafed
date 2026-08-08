@@ -5,7 +5,8 @@ export default function DashboardSearchPage() {
     <div>
       <h1 className="text-2xl font-bold">Find Instagram accounts</h1>
       <p className="text-neutral-400 text-sm mt-1">
-        Search by username, then subscribe to start collecting their videos.
+        Search by name or username, then subscribe to start collecting their
+        videos.
       </p>
       <div className="mt-6">
         <SearchClient />

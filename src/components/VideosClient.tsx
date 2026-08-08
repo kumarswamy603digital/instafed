@@ -12,6 +12,7 @@ export function VideosClient({ username }: { username: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mock, setMock] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [active, setActive] = useState<IgVideo | null>(null);
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function VideosClient({ username }: { username: string }) {
         if (!cancelled) {
           setVideos(data.videos as IgVideo[]);
           setMock(Boolean(data.mock));
+          setDisplayName(data.account?.fullName || null);
         }
       })
       .catch((err) => {
@@ -50,14 +52,13 @@ export function VideosClient({ username }: { username: string }) {
             ← Subscriptions
           </Link>
           <h1 className="text-2xl font-bold mt-1 flex items-center gap-2">
-            @{username}
+            {displayName || username}
             {mock && <MockBadge />}
           </h1>
-          {videos && (
-            <p className="text-neutral-400 text-sm">
-              {videos.length} video{videos.length === 1 ? "" : "s"}
-            </p>
-          )}
+          <p className="text-neutral-400 text-sm">
+            @{username}
+            {videos ? ` · ${videos.length} video${videos.length === 1 ? "" : "s"}` : ""}
+          </p>
         </div>
         <a
           href={`https://www.instagram.com/${encodeURIComponent(username)}/`}

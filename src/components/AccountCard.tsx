@@ -22,7 +22,9 @@ export function AccountCard({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1">
-          <span className="font-semibold truncate">@{account.username}</span>
+          <span className="font-semibold truncate">
+            {account.fullName || account.username}
+          </span>
           {account.isVerified && <VerifiedBadge />}
           {account.isPrivate && (
             <span className="text-[10px] uppercase tracking-wide text-neutral-500 border border-neutral-700 rounded px-1">
@@ -30,9 +32,7 @@ export function AccountCard({
             </span>
           )}
         </div>
-        {account.fullName && (
-          <p className="text-sm text-neutral-400 truncate">{account.fullName}</p>
-        )}
+        <p className="text-sm text-neutral-400 truncate">@{account.username}</p>
         {account.followersCount !== null && (
           <p className="text-xs text-neutral-500 mt-0.5">
             {formatCount(account.followersCount)} followers

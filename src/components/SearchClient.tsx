@@ -105,7 +105,7 @@ export function SearchClient() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search a username, e.g. nasa"
+            placeholder="Search a name or username, e.g. Vishnu Vijayan"
             className="w-full rounded-xl border border-neutral-700 bg-neutral-900/70 py-3 pl-9 pr-3 text-sm outline-none transition focus:border-brand focus:ring-1 focus:ring-brand"
           />
         </div>
