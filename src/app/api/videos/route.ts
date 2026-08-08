@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getAccountVideos, isMockMode } from "@/lib/apify";
+import { getAccountVideos, isMockMode } from "@/lib/videos";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+// Listing reels via yt-dlp can take a while.
+export const maxDuration = 120;
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);

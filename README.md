@@ -80,6 +80,50 @@ Field mapping is intentionally defensive (it accepts several possible field
 names), so it also works with most alternative Instagram scraper actors. If you
 prefer a different actor, just set `APIFY_ACTOR_ID` in `.env`.
 
+## Video provider: Apify or yt-dlp
+
+InstaFed can fetch an account's videos/reels through **either** Apify (default)
+**or** a local **yt-dlp** binary using your Instagram cookies. Switch with
+`VIDEO_PROVIDER` in `.env`.
+
+### Using yt-dlp (recommended if Apify is flaky)
+
+1. **Install / update yt-dlp** (Instagram changes often, so keep it current):
+   ```bash
+   pip install -U yt-dlp
+   # or:  brew upgrade yt-dlp
+   ```
+2. **Provide Instagram cookies** (IG requires an authenticated session for most
+   listings). Either:
+   - Export a `cookies.txt` with the "Get cookies.txt LOCALLY" browser extension
+     while logged into instagram.com, save it in the project, and set
+     `IG_COOKIES_PATH="./cookies.txt"`, **or**
+   - Pull cookies from your logged-in browser: set
+     `IG_COOKIES_FROM_BROWSER="chrome"` (or `firefox`/`edge`/`brave`).
+3. **Enable the provider** in `.env`:
+   ```
+   VIDEO_PROVIDER="ytdlp"
+   IG_COOKIES_PATH="./cookies.txt"
+   ```
+4. **Test it works** (outside the app) — a single reel should return JSON:
+   ```bash
+   yt-dlp --cookies cookies.txt -j "https://www.instagram.com/reel/SHORTCODE/"
+   ```
+
+**How it works in the app:** listing an account uses
+`yt-dlp --flat-playlist -J https://www.instagram.com/<user>/reels/`, and opening
+a reel streams it in-page via `/api/stream` (which resolves the direct media URL
+with `yt-dlp -g` and proxies it with range support).
+
+**Adding accounts without search:** search-by-name needs Apify; with yt-dlp you
+can still **subscribe to an exact @handle directly** from the search panel
+("Add @handle directly").
+
+**Common issues:** empty results usually means expired/invalid cookies (re-export
+after logging in); `HTTP 429` means rate-limited (wait / slow down); "login
+required" means cookies weren't passed. The server terminal prints the exact
+yt-dlp error.
+
 ## Project structure
 
 ```

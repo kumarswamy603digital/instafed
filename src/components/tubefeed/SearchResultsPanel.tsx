@@ -25,6 +25,19 @@ export function SearchResultsPanel({
 }) {
   const showSkeleton = loading && (!results || results.length === 0);
 
+  // A best-guess handle from the query, for the "subscribe directly" option.
+  const handle = query.replace(/^@/, "").trim().replace(/\s+/g, "").toLowerCase();
+  const handleValid = /^[a-z0-9._]{2,30}$/.test(handle);
+  const handleSubbed = subscribedSet.has(handle);
+  const directAcc: IgAccount = {
+    username: handle,
+    fullName: null,
+    profilePicUrl: null,
+    isVerified: false,
+    isPrivate: false,
+    followersCount: null,
+  };
+
   return (
     <div className="px-6 py-5">
       <div className="animate-fade-up overflow-hidden rounded-2xl border border-neutral-800 bg-neutral-900/40">
@@ -39,6 +52,33 @@ export function SearchResultsPanel({
             Close
           </button>
         </div>
+
+        {handleValid && (
+          <div className="flex items-center justify-between gap-3 border-b border-neutral-800 bg-white/[0.02] px-5 py-3">
+            <p className="min-w-0 truncate text-sm text-neutral-400">
+              Know the exact username? Add{" "}
+              <span className="font-medium text-neutral-200">@{handle}</span>{" "}
+              directly.
+            </p>
+            <button
+              onClick={() => !handleSubbed && onSubscribe(directAcc)}
+              disabled={handleSubbed || busyUser === handle}
+              className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-70 ${
+                handleSubbed
+                  ? "border border-neutral-700 text-neutral-400"
+                  : "bg-brand hover:bg-brand-dark"
+              }`}
+            >
+              {busyUser === handle ? (
+                <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white align-[-2px]" />
+              ) : handleSubbed ? (
+                "Subscribed"
+              ) : (
+                `Subscribe to @${handle}`
+              )}
+            </button>
+          </div>
+        )}
 
         <div className="divide-y divide-neutral-800/60">
           {showSkeleton ? (
