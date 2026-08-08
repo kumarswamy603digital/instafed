@@ -14,7 +14,7 @@ export function NavBar({ userName }: { userName: string }) {
 
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-800 bg-neutral-950/80 backdrop-blur">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
         <Link
           href="/dashboard"
           className="text-xl font-extrabold bg-instagram-gradient bg-clip-text text-transparent"
