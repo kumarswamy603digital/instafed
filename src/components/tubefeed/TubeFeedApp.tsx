@@ -12,6 +12,44 @@ type FeedVideo = { video: IgVideo; channel: FeedChannel };
 const DEBOUNCE_MS = 400;
 const MIN_CHARS = 2;
 
+/**
+ * Read an image File and return a downscaled JPEG data URL — keeps the OCR
+ * payload small and fast without losing legibility.
+ */
+async function fileToDownscaledDataUrl(
+  file: File,
+  maxDim = 1400,
+  quality = 0.82,
+): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = dataUrl;
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * scale));
+    const h = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL("image/jpeg", quality);
+  } catch {
+    return dataUrl; // fall back to original if canvas fails
+  }
+}
+
 export function TubeFeedApp() {
   const { data: sessionData } = useSession();
   const userName =
@@ -263,8 +301,47 @@ function TopBar({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [ocrLoading, setOcrLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const latest = useRef("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  async function handleImageFile(file: File | null | undefined) {
+    if (!file || !file.type.startsWith("image/")) return;
+    setOcrLoading(true);
+    onToast("Reading account from image…");
+    try {
+      const imageBase64 = await fileToDownscaledDataUrl(file);
+      const res = await fetch("/api/ocr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not read the image.");
+      if (data.query) {
+        setQuery(data.query); // triggers the debounced search
+        setOpen(true);
+        onToast(`Detected "${data.query}" — searching…`);
+      } else {
+        onToast("No account name found in that image.");
+      }
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "Could not read the image.");
+    } finally {
+      setOcrLoading(false);
+    }
+  }
+
+  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    const item = Array.from(e.clipboardData.items).find((i) =>
+      i.type.startsWith("image/"),
+    );
+    if (item) {
+      e.preventDefault();
+      handleImageFile(item.getAsFile());
+    }
+  }
 
   useEffect(() => {
     const q = query.trim();
@@ -328,10 +405,42 @@ function TopBar({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => results && setOpen(true)}
-            placeholder="Search an Instagram account"
+            onPaste={handlePaste}
+            placeholder="Search an account, or paste a profile screenshot"
             className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
           />
-          <span className="flex h-9 w-11 items-center justify-center">
+
+          {/* Hidden file input for screenshot upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              handleImageFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+
+          {/* Upload screenshot (OCR) button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title="Upload / paste an Instagram screenshot to auto-detect the account"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 transition hover:text-white"
+          >
+            {ocrLoading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-600 border-t-brand" />
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="8.5" cy="10" r="1.5" />
+                <path d="M21 17l-5-5-4 4-2-2-4 4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+
+          <span className="flex h-9 w-10 items-center justify-center border-l border-neutral-800">
             {loading ? (
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-600 border-t-brand" />
             ) : (
