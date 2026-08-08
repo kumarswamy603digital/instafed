@@ -76,24 +76,37 @@ export function MockBadge() {
 }
 
 
+/** A single shimmering skeleton block. Pass sizing/rounded via className. */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`skeleton ${className}`} />;
+}
+
+/** Slim indeterminate top progress bar — show while something is loading. */
+export function LoadingBar({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <div className="relative h-0.5 w-full overflow-hidden bg-transparent">
+      <div className="loading-bar-fill" />
+    </div>
+  );
+}
+
 /** Skeleton placeholder for an account card while searching. */
 export function AccountCardSkeleton() {
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-neutral-800 bg-neutral-900/50 p-4">
-      <div className="h-14 w-14 shrink-0 animate-pulse rounded-full bg-neutral-800" />
+      <Skeleton className="h-14 w-14 shrink-0 rounded-full" />
       <div className="min-w-0 flex-1 space-y-2">
-        <div className="h-4 w-2/5 animate-pulse rounded bg-neutral-800" />
-        <div className="h-3 w-1/4 animate-pulse rounded bg-neutral-800/70" />
-        <div className="h-2.5 w-1/3 animate-pulse rounded bg-neutral-800/50" />
+        <Skeleton className="h-4 w-2/5 rounded" />
+        <Skeleton className="h-3 w-1/4 rounded" />
+        <Skeleton className="h-2.5 w-1/3 rounded" />
       </div>
-      <div className="h-8 w-24 shrink-0 animate-pulse rounded-lg bg-neutral-800" />
+      <Skeleton className="h-8 w-24 shrink-0 rounded-lg" />
     </div>
   );
 }
 
 /** Skeleton placeholder for a video tile while loading. */
 export function VideoTileSkeleton() {
-  return (
-    <div className="aspect-[9/16] animate-pulse rounded-xl border border-neutral-800 bg-neutral-900" />
-  );
+  return <Skeleton className="aspect-[9/16] rounded-xl border border-neutral-800" />;
 }

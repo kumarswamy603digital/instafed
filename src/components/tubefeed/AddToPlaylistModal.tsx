@@ -108,7 +108,7 @@ export function AddToPlaylistModal({
           {playlists === null ? (
             <div className="space-y-2 p-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-9 animate-pulse rounded-lg bg-neutral-900" />
+                <div key={i} className="skeleton h-9 rounded-lg" />
               ))}
             </div>
           ) : playlists.length === 0 ? (

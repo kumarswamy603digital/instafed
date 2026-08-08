@@ -9,7 +9,7 @@ import type {
   SectionDTO,
   SubscriptionDTO,
 } from "@/lib/types";
-import { Avatar, VerifiedBadge } from "../ui";
+import { Avatar, VerifiedBadge, LoadingBar } from "../ui";
 import { VideoModal } from "../VideoModal";
 import { FeedCard, type FeedChannel } from "./FeedCard";
 import { SectionModal } from "./SectionModal";
@@ -418,6 +418,8 @@ export function TubeFeedApp() {
         }}
       />
 
+      <LoadingBar show={searchLoading || ocrLoading || feedLoading} />
+
       <div className="flex min-h-0 flex-1">
         <Sidebar
           subs={subs}
@@ -600,9 +602,9 @@ function FeedSkeleton() {
     <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i}>
-          <div className="aspect-video w-full animate-pulse rounded-xl bg-neutral-900" />
-          <div className="mt-2.5 h-4 w-4/5 animate-pulse rounded bg-neutral-900" />
-          <div className="mt-1.5 h-3 w-1/2 animate-pulse rounded bg-neutral-900/70" />
+          <div className="skeleton aspect-video w-full rounded-xl" />
+          <div className="skeleton mt-2.5 h-4 w-4/5 rounded" />
+          <div className="skeleton mt-1.5 h-3 w-1/2 rounded" />
         </div>
       ))}
     </div>
@@ -874,8 +876,8 @@ function Sidebar({
         <div className="space-y-1 px-3">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="flex items-center gap-2 px-2 py-2">
-              <div className="h-8 w-8 animate-pulse rounded-full bg-neutral-800" />
-              <div className="h-3 w-28 animate-pulse rounded bg-neutral-800" />
+              <div className="skeleton h-8 w-8 rounded-full" />
+              <div className="skeleton h-3 w-28 rounded" />
             </div>
           ))}
         </div>

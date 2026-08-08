@@ -16,6 +16,54 @@ body {
   margin: 0;
 }
 
+/* ---- Loading: shimmer skeleton ---- */
+@keyframes shimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.skeleton {
+  background-color: #191919;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* ---- Loading: slim indeterminate top progress bar ---- */
+@keyframes loading-bar {
+  0% {
+    left: -40%;
+    width: 40%;
+  }
+  50% {
+    left: 25%;
+    width: 55%;
+  }
+  100% {
+    left: 100%;
+    width: 45%;
+  }
+}
+
+.loading-bar-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #833ab4, #e1306c, #f77737);
+  animation: loading-bar 1.15s ease-in-out infinite;
+}
+
 /* Respect users who prefer reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   *,

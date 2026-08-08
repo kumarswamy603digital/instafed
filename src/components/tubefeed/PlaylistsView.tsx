@@ -133,7 +133,15 @@ export function PlaylistsView({
         </div>
 
         {loadingDetail ? (
-          <p className="mt-16 text-center text-neutral-500">Loading…</p>
+          <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i}>
+                <div className="skeleton aspect-video w-full rounded-xl" />
+                <div className="skeleton mt-2.5 h-4 w-4/5 rounded" />
+                <div className="skeleton mt-1.5 h-3 w-1/2 rounded" />
+              </div>
+            ))}
+          </div>
         ) : items.length === 0 ? (
           <p className="mt-16 text-center text-neutral-500">
             This playlist is empty. Add videos with the “Playlist” button on any
@@ -217,10 +225,7 @@ export function PlaylistsView({
 
         {playlists === null
           ? Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-video animate-pulse rounded-2xl bg-neutral-900"
-              />
+              <div key={i} className="skeleton aspect-video rounded-2xl" />
             ))
           : playlists.map((pl) => (
               <button

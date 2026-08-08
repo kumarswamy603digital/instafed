@@ -86,8 +86,11 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-2.5 rounded-lg font-semibold bg-brand hover:bg-brand-dark transition disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 py-2.5 rounded-lg font-semibold bg-brand hover:bg-brand-dark transition disabled:opacity-50"
         >
+          {loading && (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+          )}
           {loading ? "Creating account…" : "Sign up"}
         </button>
       </form>

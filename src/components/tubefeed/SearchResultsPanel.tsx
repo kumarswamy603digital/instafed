@@ -42,12 +42,12 @@ export function SearchResultsPanel({
           {showSkeleton ? (
             Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4 px-5 py-3.5">
-                <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-neutral-800" />
+                <div className="skeleton h-12 w-12 shrink-0 rounded-full" />
                 <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-4 w-1/3 animate-pulse rounded bg-neutral-800" />
-                  <div className="h-3 w-2/3 animate-pulse rounded bg-neutral-800/60" />
+                  <div className="skeleton h-4 w-1/3 rounded" />
+                  <div className="skeleton h-3 w-2/3 rounded" />
                 </div>
-                <div className="h-8 w-24 shrink-0 animate-pulse rounded-lg bg-neutral-800" />
+                <div className="skeleton h-8 w-24 shrink-0 rounded-lg" />
               </div>
             ))
           ) : results && results.length === 0 ? (
@@ -94,11 +94,13 @@ export function SearchResultsPanel({
                         : "bg-brand hover:bg-brand-dark"
                     }`}
                   >
-                    {busyUser === acc.username
-                      ? "…"
-                      : subbed
-                      ? "Subscribed"
-                      : "Subscribe"}
+                    {busyUser === acc.username ? (
+                      <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white align-[-2px]" />
+                    ) : subbed ? (
+                      "Subscribed"
+                    ) : (
+                      "Subscribe"
+                    )}
                   </button>
                 </div>
               );
