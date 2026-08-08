@@ -119,7 +119,7 @@ export function PlaylistsView({
         </button>
         <div className="mt-2 flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">{selected.name}</h1>
+            <h1 className="text-3xl font-bold">{selected.name}</h1>
             <p className="text-sm text-neutral-400">
               {items.length} video{items.length === 1 ? "" : "s"}
             </p>
@@ -182,7 +182,7 @@ export function PlaylistsView({
   /* ------------------------------- List view ------------------------------ */
   return (
     <div className="px-6 py-5">
-      <h1 className="text-2xl font-bold">Playlists</h1>
+      <h1 className="text-3xl font-bold">Playlists</h1>
       <p className="mt-1 text-sm text-neutral-400">
         Your saved collections of videos.
       </p>

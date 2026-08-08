@@ -383,13 +383,13 @@ export function TubeFeedApp() {
           ) : (
           <div className="px-6 py-5">
             <div className="flex items-center justify-between gap-4">
-              <h1 className="text-2xl font-bold">{sectionTitle}</h1>
+              <h1 className="text-3xl font-bold">{sectionTitle}</h1>
               <div className="flex rounded-full border border-neutral-800 bg-neutral-900 p-0.5 text-sm">
                 {(["videos", "reels"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`rounded-full px-4 py-1.5 font-medium capitalize transition ${
+                    className={`rounded-full px-5 py-2 font-medium capitalize transition ${
                       tab === t
                         ? "bg-white text-neutral-900"
                         : "text-neutral-400 hover:text-white"
@@ -536,7 +536,7 @@ function HistoryView({
     <div className="px-6 py-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">History</h1>
+          <h1 className="text-3xl font-bold">History</h1>
           <p className="text-sm text-neutral-400">
             Videos you&apos;ve opened, most recent first.
           </p>
@@ -690,29 +690,29 @@ function TopBar({
   }
 
   return (
-    <header className="z-30 flex h-16 items-center gap-4 border-b border-neutral-800 bg-neutral-950/90 px-4 backdrop-blur">
-      <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-instagram-gradient text-lg font-black">
+    <header className="z-30 flex h-[4.75rem] items-center gap-5 border-b border-neutral-800 bg-neutral-950/90 px-5 backdrop-blur">
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-instagram-gradient text-xl font-black">
           I
         </span>
-        <div className="leading-none">
-          <div className="text-lg font-extrabold tracking-tight">InstaFed</div>
-          <div className="text-[10px] font-medium uppercase tracking-widest text-neutral-500">
+        <div className="leading-tight">
+          <div className="text-xl font-extrabold tracking-tight">InstaFed</div>
+          <div className="text-[11px] font-medium uppercase tracking-widest text-neutral-500">
             Your feed, your rules
           </div>
         </div>
       </div>
 
-      <div className="relative mx-auto w-full max-w-xl">
+      <div className="relative mx-auto w-full max-w-2xl">
         <div className="flex items-center rounded-full border border-neutral-700 bg-neutral-900 focus-within:border-brand">
-          <span className="pl-4 text-neutral-500">@</span>
+          <span className="pl-5 text-neutral-500">@</span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => results && setOpen(true)}
             onPaste={handlePaste}
             placeholder="Search an account, or paste a profile screenshot"
-            className="w-full bg-transparent px-2 py-2.5 text-sm outline-none"
+            className="w-full bg-transparent px-3 py-3 text-[15px] outline-none"
           />
 
           <input
@@ -730,12 +730,12 @@ function TopBar({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             title="Upload / paste an Instagram screenshot to auto-detect the account"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 transition hover:text-white"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-neutral-400 transition hover:text-white"
           >
             {ocrLoading ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-600 border-t-brand" />
+              <span className="h-[18px] w-[18px] animate-spin rounded-full border-2 border-neutral-600 border-t-brand" />
             ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={2}>
                 <rect x="3" y="5" width="18" height="14" rx="2" />
                 <circle cx="8.5" cy="10" r="1.5" />
                 <path d="M21 17l-5-5-4 4-2-2-4 4" strokeLinecap="round" strokeLinejoin="round" />
@@ -743,11 +743,11 @@ function TopBar({
             )}
           </button>
 
-          <span className="flex h-9 w-10 items-center justify-center border-l border-neutral-800">
+          <span className="flex h-10 w-11 items-center justify-center border-l border-neutral-800">
             {loading ? (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-600 border-t-brand" />
+              <span className="h-[18px] w-[18px] animate-spin rounded-full border-2 border-neutral-600 border-t-brand" />
             ) : (
-              <svg viewBox="0 0 24 24" className="h-4 w-4 text-neutral-400" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] text-neutral-400" fill="none" stroke="currentColor" strokeWidth={2}>
                 <circle cx="11" cy="11" r="7" />
                 <path d="M21 21l-4.3-4.3" strokeLinecap="round" />
               </svg>
@@ -811,28 +811,28 @@ function TopBar({
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
         <ActionButton label="New Section" onClick={onNewSection} />
         <ActionButton label="New Playlist" onClick={onNewPlaylist} />
         <button
           onClick={onViewPlaylists}
-          className="hidden rounded-lg border border-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
+          className="hidden rounded-lg border border-neutral-800 px-4 py-2 text-sm font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
         >
           Playlists
         </button>
         <button
           onClick={onOpenHistory}
-          className="hidden rounded-lg border border-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
+          className="hidden rounded-lg border border-neutral-800 px-4 py-2 text-sm font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
         >
           History
         </button>
-        <div className="mx-1 h-6 w-px bg-neutral-800" />
+        <div className="mx-1 h-7 w-px bg-neutral-800" />
         <div className="group relative">
           <button className="flex items-center gap-2 rounded-full border border-neutral-800 py-1 pl-1 pr-3 hover:bg-white/5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-instagram-gradient text-xs font-bold">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-instagram-gradient text-sm font-bold">
               {userName.charAt(0).toUpperCase()}
             </span>
-            <span className="hidden max-w-[100px] truncate text-sm text-neutral-300 sm:inline">
+            <span className="hidden max-w-[110px] truncate text-sm text-neutral-300 sm:inline">
               {userName}
             </span>
           </button>
@@ -860,7 +860,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className="hidden rounded-lg border border-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
+      className="hidden rounded-lg border border-neutral-800 px-4 py-2 text-sm font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
     >
       + {label}
     </button>
@@ -990,13 +990,13 @@ function ChipBar({
   onToast: (msg: string) => void;
 }) {
   return (
-    <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-neutral-800 bg-neutral-950/90 px-6 py-2.5 backdrop-blur">
-      <div className="flex shrink-0 rounded-full border border-neutral-800 bg-neutral-900 p-0.5 text-xs">
+    <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-neutral-800 bg-neutral-950/90 px-6 py-3 backdrop-blur">
+      <div className="flex shrink-0 rounded-full border border-neutral-800 bg-neutral-900 p-0.5 text-sm">
         {(["sections", "playlists"] as const).map((m) => (
           <button
             key={m}
             onClick={() => onSetMode(m)}
-            className={`rounded-full px-3 py-1 font-medium capitalize transition ${
+            className={`rounded-full px-4 py-1.5 font-medium capitalize transition ${
               mode === m
                 ? "bg-white text-neutral-900"
                 : "text-neutral-400 hover:text-white"
@@ -1011,7 +1011,7 @@ function ChipBar({
       <div className="flex items-center gap-2 overflow-x-auto">
         <button
           onClick={onSelectAll}
-          className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition ${
+          className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
             view.type === "all"
               ? "bg-white text-neutral-900"
               : "border border-neutral-800 text-neutral-300 hover:bg-white/5"
@@ -1021,7 +1021,7 @@ function ChipBar({
         </button>
         <button
           onClick={onSelectPinned}
-          className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition ${
+          className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition ${
             view.type === "pinned"
               ? "bg-white text-neutral-900"
               : "border border-neutral-800 text-neutral-300 hover:bg-white/5"
@@ -1035,7 +1035,7 @@ function ChipBar({
           return (
             <span
               key={sec.id}
-              className={`inline-flex items-center whitespace-nowrap rounded-full text-xs font-medium transition ${
+              className={`inline-flex items-center whitespace-nowrap rounded-full text-sm font-medium transition ${
                 activeSec
                   ? "bg-white text-neutral-900"
                   : "border border-neutral-800 text-neutral-300 hover:bg-white/5"
@@ -1043,7 +1043,7 @@ function ChipBar({
             >
               <button
                 onClick={() => onSelectSection(sec.id)}
-                className="py-1 pl-3 pr-1.5"
+                className="py-1.5 pl-4 pr-2"
               >
                 {sec.name}
               </button>
@@ -1065,7 +1065,7 @@ function ChipBar({
         <button
           onClick={onNewSection}
           title="New section"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-neutral-700 text-neutral-400 transition hover:border-brand hover:text-white"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-dashed border-neutral-700 text-base text-neutral-400 transition hover:border-brand hover:text-white"
         >
           +
         </button>
