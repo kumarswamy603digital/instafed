@@ -25,11 +25,15 @@ export function PlaylistsView({
   focusCreateNonce,
   onOpenVideo,
   onAddToPlaylist,
+  pinnedKeys,
+  onTogglePin,
   onToast,
 }: {
   focusCreateNonce: number;
-  onOpenVideo: (v: IgVideo) => void;
+  onOpenVideo: (v: IgVideo, c: FeedChannel) => void;
   onAddToPlaylist: (v: IgVideo, c: FeedChannel) => void;
+  pinnedKeys?: Set<string>;
+  onTogglePin?: (v: IgVideo, c: FeedChannel) => void;
   onToast: (msg: string) => void;
 }) {
   const [playlists, setPlaylists] = useState<PlaylistDTO[] | null>(null);
@@ -157,8 +161,14 @@ export function PlaylistsView({
                   <FeedCard
                     video={video}
                     channel={it.channel}
-                    onOpen={() => onOpenVideo(video)}
+                    onOpen={() => onOpenVideo(video, it.channel)}
                     onAddToPlaylist={() => onAddToPlaylist(video, it.channel)}
+                    isPinned={pinnedKeys?.has(video.id)}
+                    onTogglePin={
+                      onTogglePin
+                        ? () => onTogglePin(video, it.channel)
+                        : undefined
+                    }
                   />
                 </div>
               );

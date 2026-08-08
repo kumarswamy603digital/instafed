@@ -18,11 +18,15 @@ export function FeedCard({
   channel,
   onOpen,
   onAddToPlaylist,
+  isPinned,
+  onTogglePin,
 }: {
   video: IgVideo;
   channel: FeedChannel;
   onOpen: () => void;
   onAddToPlaylist: () => void;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const thumb = proxied(video.thumbnailUrl);
@@ -84,15 +88,31 @@ export function FeedCard({
             )}
             {timeAgo(video.timestamp) || "recently"}
           </p>
-          <button
-            onClick={onAddToPlaylist}
-            className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white"
-          >
-            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path d="M4 6h11M4 12h11M4 18h7M17 14v6M14 17h6" strokeLinecap="round" />
-            </svg>
-            Playlist
-          </button>
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <button
+              onClick={onAddToPlaylist}
+              className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path d="M4 6h11M4 12h11M4 18h7M17 14v6M14 17h6" strokeLinecap="round" />
+              </svg>
+              Playlist
+            </button>
+            {onTogglePin && (
+              <button
+                onClick={onTogglePin}
+                title={isPinned ? "Unpin" : "Pin"}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition ${
+                  isPinned
+                    ? "bg-brand/20 text-brand-light"
+                    : "bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <span>{isPinned ? "📌" : "📍"}</span>
+                {isPinned ? "Pinned" : "Pin"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

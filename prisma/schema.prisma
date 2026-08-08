@@ -20,6 +20,8 @@ model User {
   subscriptions Subscription[]
   sections      Section[]
   playlists     Playlist[]
+  pinned        PinnedVideo[]
+  history       HistoryItem[]
 }
 
 model Subscription {
@@ -115,4 +117,63 @@ model PlaylistItem {
 
   @@unique([playlistId, videoKey])
   @@index([playlistId])
+}
+
+
+// A video the user pinned. Snapshots the video + channel like PlaylistItem.
+model PinnedVideo {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  videoKey        String
+  shortCode       String?
+  url             String
+  caption         String?
+  thumbnailUrl    String?
+  videoUrl        String?
+  durationSeconds Float?
+  viewsCount      Float?
+  likesCount      Float?
+  commentsCount   Float?
+  timestamp       String?
+
+  channelUsername   String
+  channelFullName   String?
+  channelProfilePic String?
+  channelIsVerified Boolean @default(false)
+
+  pinnedAt DateTime @default(now())
+
+  @@unique([userId, videoKey])
+  @@index([userId])
+}
+
+// A watched-video history entry. Re-watching updates watchedAt.
+model HistoryItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  videoKey        String
+  shortCode       String?
+  url             String
+  caption         String?
+  thumbnailUrl    String?
+  videoUrl        String?
+  durationSeconds Float?
+  viewsCount      Float?
+  likesCount      Float?
+  commentsCount   Float?
+  timestamp       String?
+
+  channelUsername   String
+  channelFullName   String?
+  channelProfilePic String?
+  channelIsVerified Boolean @default(false)
+
+  watchedAt DateTime @default(now())
+
+  @@unique([userId, videoKey])
+  @@index([userId])
 }

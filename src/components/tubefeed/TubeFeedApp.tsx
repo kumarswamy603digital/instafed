@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import type {
   IgAccount,
   IgVideo,
+  PlaylistItemDTO,
   SectionDTO,
   SubscriptionDTO,
 } from "@/lib/types";
@@ -19,7 +20,27 @@ type FeedVideo = { video: IgVideo; channel: FeedChannel };
 type View =
   | { type: "all" }
   | { type: "channel"; username: string }
-  | { type: "section"; id: string };
+  | { type: "section"; id: string }
+  | { type: "pinned" };
+
+function savedToFeed(i: PlaylistItemDTO): FeedVideo {
+  return {
+    video: {
+      id: i.videoKey,
+      shortCode: i.shortCode || i.videoKey,
+      url: i.url,
+      caption: i.caption,
+      thumbnailUrl: i.thumbnailUrl,
+      videoUrl: i.videoUrl,
+      likesCount: i.likesCount,
+      commentsCount: i.commentsCount,
+      viewsCount: i.viewsCount,
+      durationSeconds: i.durationSeconds,
+      timestamp: i.timestamp,
+    },
+    channel: i.channel,
+  };
+}
 
 const DEBOUNCE_MS = 400;
 const MIN_CHARS = 2;
@@ -75,9 +96,15 @@ export function TubeFeedApp() {
   const [sectionModalOpen, setSectionModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<SectionDTO | null>(null);
 
-  const [mode, setMode] = useState<"sections" | "playlists">("sections");
+  const [mode, setMode] = useState<"sections" | "playlists" | "history">(
+    "sections",
+  );
   const [addTo, setAddTo] = useState<{ video: IgVideo; channel: FeedChannel } | null>(null);
   const [playlistFocusNonce, setPlaylistFocusNonce] = useState(0);
+
+  const [pinned, setPinned] = useState<FeedVideo[]>([]);
+  const [history, setHistory] = useState<FeedVideo[] | null>(null);
+  const pinnedKeys = new Set(pinned.map((p) => p.video.id));
 
   const videosCache = useRef<Map<string, IgVideo[]>>(new Map());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -102,10 +129,58 @@ export function TubeFeedApp() {
     setSections(data.sections ?? []);
   }, []);
 
+  const refreshPinned = useCallback(async () => {
+    const res = await fetch("/api/pinned");
+    const data = await res.json().catch(() => ({ items: [] }));
+    setPinned(((data.items as PlaylistItemDTO[]) ?? []).map(savedToFeed));
+  }, []);
+
+  const refreshHistory = useCallback(async () => {
+    setHistory(null);
+    const res = await fetch("/api/history");
+    const data = await res.json().catch(() => ({ items: [] }));
+    setHistory(((data.items as PlaylistItemDTO[]) ?? []).map(savedToFeed));
+  }, []);
+
   useEffect(() => {
     refreshSubs();
     refreshSections();
-  }, [refreshSubs, refreshSections]);
+    refreshPinned();
+  }, [refreshSubs, refreshSections, refreshPinned]);
+
+  const openVideo = useCallback((video: IgVideo, channel: FeedChannel) => {
+    setActive(video);
+    // Best-effort history record.
+    fetch("/api/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video, channel }),
+    }).catch(() => {});
+  }, []);
+
+  async function togglePin(video: IgVideo, channel: FeedChannel) {
+    const isP = pinned.some((p) => p.video.id === video.id);
+    setPinned((prev) =>
+      isP
+        ? prev.filter((p) => p.video.id !== video.id)
+        : [{ video, channel }, ...prev],
+    );
+    try {
+      if (isP) {
+        await fetch(`/api/pinned?videoKey=${encodeURIComponent(video.id)}`, {
+          method: "DELETE",
+        });
+      } else {
+        await fetch("/api/pinned", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ video, channel }),
+        });
+      }
+    } catch {
+      refreshPinned();
+    }
+  }
 
   const channelFor = useCallback(
     (username: string): FeedChannel => {
@@ -143,6 +218,7 @@ export function TubeFeedApp() {
   // Load feed based on the current view (all / channel / section).
   useEffect(() => {
     if (subs === null) return;
+    if (view.type === "pinned") return; // pinned uses local state, not Apify
     let cancelled = false;
 
     let targets: string[];
@@ -228,11 +304,17 @@ export function TubeFeedApp() {
     tab === "reels" ? isReel(f.video) : !isReel(f.video),
   );
 
+  const pinnedDisplayed = pinned.filter((f) =>
+    tab === "reels" ? isReel(f.video) : !isReel(f.video),
+  );
+
   const sectionTitle =
     view.type === "channel"
       ? `@${view.username}`
       : view.type === "section"
       ? sections.find((s) => s.id === view.id)?.name ?? "Section"
+      : view.type === "pinned"
+      ? "📌 Pinned"
       : "All";
 
   return (
@@ -248,6 +330,10 @@ export function TubeFeedApp() {
           setPlaylistFocusNonce((n) => n + 1);
         }}
         onViewPlaylists={() => setMode("playlists")}
+        onOpenHistory={() => {
+          setMode("history");
+          refreshHistory();
+        }}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -267,6 +353,7 @@ export function TubeFeedApp() {
             view={view}
             onSelectAll={() => setView({ type: "all" })}
             onSelectSection={(id) => setView({ type: "section", id })}
+            onSelectPinned={() => setView({ type: "pinned" })}
             onEditSection={openEditSection}
             onNewSection={openCreateSection}
             onToast={showToast}
@@ -275,9 +362,23 @@ export function TubeFeedApp() {
           {mode === "playlists" ? (
             <PlaylistsView
               focusCreateNonce={playlistFocusNonce}
-              onOpenVideo={(v) => setActive(v)}
+              onOpenVideo={openVideo}
               onAddToPlaylist={(v, c) => setAddTo({ video: v, channel: c })}
+              pinnedKeys={pinnedKeys}
+              onTogglePin={togglePin}
               onToast={showToast}
+            />
+          ) : mode === "history" ? (
+            <HistoryView
+              items={history}
+              onOpenVideo={openVideo}
+              pinnedKeys={pinnedKeys}
+              onTogglePin={togglePin}
+              onAddToPlaylist={(v, c) => setAddTo({ video: v, channel: c })}
+              onClear={async () => {
+                await fetch("/api/history", { method: "DELETE" });
+                refreshHistory();
+              }}
             />
           ) : (
           <div className="px-6 py-5">
@@ -300,7 +401,34 @@ export function TubeFeedApp() {
               </div>
             </div>
 
-            {subs !== null && subs.length === 0 ? (
+            {view.type === "pinned" ? (
+              pinnedDisplayed.length === 0 ? (
+                <p className="mt-16 text-center text-neutral-500">
+                  No pinned {tab} yet. Tap “Pin” on any video to save it here.
+                </p>
+              ) : (
+                <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {pinnedDisplayed.map((f, i) => (
+                    <div
+                      key={`pin-${f.channel.username}-${f.video.id}`}
+                      className="animate-fade-up"
+                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                    >
+                      <FeedCard
+                        video={f.video}
+                        channel={f.channel}
+                        onOpen={() => openVideo(f.video, f.channel)}
+                        onAddToPlaylist={() =>
+                          setAddTo({ video: f.video, channel: f.channel })
+                        }
+                        isPinned={pinnedKeys.has(f.video.id)}
+                        onTogglePin={() => togglePin(f.video, f.channel)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : subs !== null && subs.length === 0 ? (
               <EmptyState onToast={showToast} />
             ) : view.type === "section" &&
               (sections.find((s) => s.id === view.id)?.channelUsernames.length ??
@@ -328,10 +456,12 @@ export function TubeFeedApp() {
                     <FeedCard
                       video={f.video}
                       channel={f.channel}
-                      onOpen={() => setActive(f.video)}
+                      onOpen={() => openVideo(f.video, f.channel)}
                       onAddToPlaylist={() =>
                         setAddTo({ video: f.video, channel: f.channel })
                       }
+                      isPinned={pinnedKeys.has(f.video.id)}
+                      onTogglePin={() => togglePin(f.video, f.channel)}
                     />
                   </div>
                 ))}
@@ -387,6 +517,70 @@ function FeedSkeleton() {
   );
 }
 
+function HistoryView({
+  items,
+  onOpenVideo,
+  pinnedKeys,
+  onTogglePin,
+  onAddToPlaylist,
+  onClear,
+}: {
+  items: FeedVideo[] | null;
+  onOpenVideo: (v: IgVideo, c: FeedChannel) => void;
+  pinnedKeys: Set<string>;
+  onTogglePin: (v: IgVideo, c: FeedChannel) => void;
+  onAddToPlaylist: (v: IgVideo, c: FeedChannel) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="px-6 py-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">History</h1>
+          <p className="text-sm text-neutral-400">
+            Videos you&apos;ve opened, most recent first.
+          </p>
+        </div>
+        {items && items.length > 0 && (
+          <button
+            onClick={onClear}
+            className="rounded-lg border border-neutral-800 px-3 py-1.5 text-sm text-neutral-400 transition hover:border-red-500/40 hover:text-red-400"
+          >
+            Clear history
+          </button>
+        )}
+      </div>
+
+      {items === null ? (
+        <FeedSkeleton />
+      ) : items.length === 0 ? (
+        <p className="mt-16 text-center text-neutral-500">
+          No history yet — open a video to start building it.
+        </p>
+      ) : (
+        <div className="mt-6 grid grid-cols-1 gap-x-4 gap-y-7 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {items.map((f, i) => (
+            <div
+              key={`hist-${f.channel.username}-${f.video.id}`}
+              className="animate-fade-up"
+              style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+            >
+              <FeedCard
+                video={f.video}
+                channel={f.channel}
+                onOpen={() => onOpenVideo(f.video, f.channel)}
+                onAddToPlaylist={() => onAddToPlaylist(f.video, f.channel)}
+                isPinned={pinnedKeys.has(f.video.id)}
+                onTogglePin={() => onTogglePin(f.video, f.channel)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /*                                  TOP BAR                                    */
 /* -------------------------------------------------------------------------- */
@@ -407,6 +601,7 @@ function TopBar({
   onNewSection: () => void;
   onNewPlaylist: () => void;
   onViewPlaylists: () => void;
+  onOpenHistory: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<IgAccount[] | null>(null);
@@ -625,7 +820,12 @@ function TopBar({
         >
           Playlists
         </button>
-        <ActionButton label="History" onClick={() => onToast("History is coming in a later step")} />
+        <button
+          onClick={onOpenHistory}
+          className="hidden rounded-lg border border-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
+        >
+          History
+        </button>
         <div className="mx-1 h-6 w-px bg-neutral-800" />
         <div className="group relative">
           <button className="flex items-center gap-2 rounded-full border border-neutral-800 py-1 pl-1 pr-3 hover:bg-white/5">
@@ -773,16 +973,18 @@ function ChipBar({
   view,
   onSelectAll,
   onSelectSection,
+  onSelectPinned,
   onEditSection,
   onNewSection,
   onToast,
 }: {
-  mode: "sections" | "playlists";
+  mode: "sections" | "playlists" | "history";
   onSetMode: (m: "sections" | "playlists") => void;
   sections: SectionDTO[];
   view: View;
   onSelectAll: () => void;
   onSelectSection: (id: string) => void;
+  onSelectPinned: () => void;
   onEditSection: (sec: SectionDTO) => void;
   onNewSection: () => void;
   onToast: (msg: string) => void;
@@ -818,8 +1020,12 @@ function ChipBar({
           All
         </button>
         <button
-          onClick={() => onToast("Pinned is coming in a later step")}
-          className="whitespace-nowrap rounded-full border border-neutral-800 px-3 py-1 text-xs font-medium text-neutral-300 transition hover:bg-white/5"
+          onClick={onSelectPinned}
+          className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition ${
+            view.type === "pinned"
+              ? "bg-white text-neutral-900"
+              : "border border-neutral-800 text-neutral-300 hover:bg-white/5"
+          }`}
         >
           📌 Pinned
         </button>
