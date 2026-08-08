@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { IgVideo } from "@/lib/types";
 import { VideoCard } from "./VideoCard";
 import { VideoModal } from "./VideoModal";
-import { Spinner, MockBadge } from "./ui";
+import { MockBadge, VideoTileSkeleton } from "./ui";
 
 export function VideosClient({ username }: { username: string }) {
   const [videos, setVideos] = useState<IgVideo[] | null>(null);
@@ -70,7 +70,13 @@ export function VideosClient({ username }: { username: string }) {
         </a>
       </div>
 
-      {loading && <Spinner label="Fetching videos from Apify…" />}
+      {loading && (
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <VideoTileSkeleton key={i} />
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-sm px-3 py-2">
@@ -86,8 +92,14 @@ export function VideosClient({ username }: { username: string }) {
 
       {!loading && videos && videos.length > 0 && (
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {videos.map((v) => (
-            <VideoCard key={v.id} video={v} onOpen={() => setActive(v)} />
+          {videos.map((v, i) => (
+            <div
+              key={v.id}
+              className="animate-fade-up"
+              style={{ animationDelay: `${Math.min(i, 12) * 45}ms` }}
+            >
+              <VideoCard video={v} onOpen={() => setActive(v)} />
+            </div>
           ))}
         </div>
       )}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { SubscriptionDTO } from "@/lib/types";
-import { Avatar, VerifiedBadge, Spinner } from "./ui";
+import { Avatar, VerifiedBadge, AccountCardSkeleton } from "./ui";
 
 export function SubscriptionsClient() {
   const [subs, setSubs] = useState<SubscriptionDTO[] | null>(null);
@@ -31,7 +31,15 @@ export function SubscriptionsClient() {
     }
   }
 
-  if (subs === null) return <Spinner label="Loading subscriptions…" />;
+  if (subs === null) {
+    return (
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <AccountCardSkeleton key={i} />
+        ))}
+      </div>
+    );
+  }
 
   if (subs.length === 0) {
     return (
