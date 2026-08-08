@@ -12,6 +12,8 @@ import { Avatar, VerifiedBadge } from "../ui";
 import { VideoModal } from "../VideoModal";
 import { FeedCard, type FeedChannel } from "./FeedCard";
 import { SectionModal } from "./SectionModal";
+import { PlaylistsView } from "./PlaylistsView";
+import { AddToPlaylistModal } from "./AddToPlaylistModal";
 
 type FeedVideo = { video: IgVideo; channel: FeedChannel };
 type View =
@@ -72,6 +74,10 @@ export function TubeFeedApp() {
 
   const [sectionModalOpen, setSectionModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<SectionDTO | null>(null);
+
+  const [mode, setMode] = useState<"sections" | "playlists">("sections");
+  const [addTo, setAddTo] = useState<{ video: IgVideo; channel: FeedChannel } | null>(null);
+  const [playlistFocusNonce, setPlaylistFocusNonce] = useState(0);
 
   const videosCache = useRef<Map<string, IgVideo[]>>(new Map());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -237,6 +243,11 @@ export function TubeFeedApp() {
         onSubscribe={subscribe}
         onToast={showToast}
         onNewSection={openCreateSection}
+        onNewPlaylist={() => {
+          setMode("playlists");
+          setPlaylistFocusNonce((n) => n + 1);
+        }}
+        onViewPlaylists={() => setMode("playlists")}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -250,6 +261,8 @@ export function TubeFeedApp() {
 
         <main className="min-w-0 flex-1 overflow-y-auto">
           <ChipBar
+            mode={mode}
+            onSetMode={setMode}
             sections={sections}
             view={view}
             onSelectAll={() => setView({ type: "all" })}
@@ -259,6 +272,14 @@ export function TubeFeedApp() {
             onToast={showToast}
           />
 
+          {mode === "playlists" ? (
+            <PlaylistsView
+              focusCreateNonce={playlistFocusNonce}
+              onOpenVideo={(v) => setActive(v)}
+              onAddToPlaylist={(v, c) => setAddTo({ video: v, channel: c })}
+              onToast={showToast}
+            />
+          ) : (
           <div className="px-6 py-5">
             <div className="flex items-center justify-between gap-4">
               <h1 className="text-2xl font-bold">{sectionTitle}</h1>
@@ -309,7 +330,7 @@ export function TubeFeedApp() {
                       channel={f.channel}
                       onOpen={() => setActive(f.video)}
                       onAddToPlaylist={() =>
-                        showToast("Playlists are coming in the next step")
+                        setAddTo({ video: f.video, channel: f.channel })
                       }
                     />
                   </div>
@@ -317,10 +338,19 @@ export function TubeFeedApp() {
               </div>
             )}
           </div>
+          )}
         </main>
       </div>
 
       {active && <VideoModal video={active} onClose={() => setActive(null)} />}
+
+      {addTo && (
+        <AddToPlaylistModal
+          video={addTo.video}
+          channel={addTo.channel}
+          onClose={() => setAddTo(null)}
+        />
+      )}
 
       <SectionModal
         open={sectionModalOpen}
@@ -367,12 +397,16 @@ function TopBar({
   onSubscribe,
   onToast,
   onNewSection,
+  onNewPlaylist,
+  onViewPlaylists,
 }: {
   userName: string;
   subscribedSet: Set<string>;
   onSubscribe: (acc: IgAccount) => Promise<void>;
   onToast: (msg: string) => void;
   onNewSection: () => void;
+  onNewPlaylist: () => void;
+  onViewPlaylists: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<IgAccount[] | null>(null);
@@ -584,7 +618,13 @@ function TopBar({
 
       <div className="flex items-center gap-2">
         <ActionButton label="New Section" onClick={onNewSection} />
-        <ActionButton label="New Playlist" onClick={() => onToast("Playlists are coming in the next step")} />
+        <ActionButton label="New Playlist" onClick={onNewPlaylist} />
+        <button
+          onClick={onViewPlaylists}
+          className="hidden rounded-lg border border-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:bg-white/5 hover:text-white lg:inline-block"
+        >
+          Playlists
+        </button>
         <ActionButton label="History" onClick={() => onToast("History is coming in a later step")} />
         <div className="mx-1 h-6 w-px bg-neutral-800" />
         <div className="group relative">
@@ -727,6 +767,8 @@ function Sidebar({
 /* -------------------------------------------------------------------------- */
 
 function ChipBar({
+  mode,
+  onSetMode,
   sections,
   view,
   onSelectAll,
@@ -735,6 +777,8 @@ function ChipBar({
   onNewSection,
   onToast,
 }: {
+  mode: "sections" | "playlists";
+  onSetMode: (m: "sections" | "playlists") => void;
   sections: SectionDTO[];
   view: View;
   onSelectAll: () => void;
@@ -746,17 +790,22 @@ function ChipBar({
   return (
     <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-neutral-800 bg-neutral-950/90 px-6 py-2.5 backdrop-blur">
       <div className="flex shrink-0 rounded-full border border-neutral-800 bg-neutral-900 p-0.5 text-xs">
-        <span className="rounded-full bg-white px-3 py-1 font-medium text-neutral-900">
-          Sections
-        </span>
-        <button
-          onClick={() => onToast("Playlists are coming in the next step")}
-          className="rounded-full px-3 py-1 font-medium text-neutral-400 hover:text-white"
-        >
-          Playlists
-        </button>
+        {(["sections", "playlists"] as const).map((m) => (
+          <button
+            key={m}
+            onClick={() => onSetMode(m)}
+            className={`rounded-full px-3 py-1 font-medium capitalize transition ${
+              mode === m
+                ? "bg-white text-neutral-900"
+                : "text-neutral-400 hover:text-white"
+            }`}
+          >
+            {m}
+          </button>
+        ))}
       </div>
 
+      {mode === "sections" && (
       <div className="flex items-center gap-2 overflow-x-auto">
         <button
           onClick={onSelectAll}
@@ -815,6 +864,7 @@ function ChipBar({
           +
         </button>
       </div>
+      )}
     </div>
   );
 }

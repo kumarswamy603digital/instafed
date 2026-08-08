@@ -45,3 +45,37 @@ export interface SectionDTO {
   subscriptionIds: string[];
   channelUsernames: string[];
 }
+
+
+/** A saved video inside a playlist (snapshot of the video + its channel). */
+export interface PlaylistItemDTO {
+  id: string;
+  videoKey: string;
+  shortCode: string | null;
+  url: string;
+  caption: string | null;
+  thumbnailUrl: string | null;
+  videoUrl: string | null;
+  durationSeconds: number | null;
+  viewsCount: number | null;
+  likesCount: number | null;
+  commentsCount: number | null;
+  timestamp: string | null;
+  channel: {
+    username: string;
+    fullName: string | null;
+    profilePic: string | null;
+    isVerified: boolean;
+  };
+}
+
+/** A user playlist. `items` is only present on the detail endpoint. */
+export interface PlaylistDTO {
+  id: string;
+  name: string;
+  position: number;
+  itemCount: number;
+  covers: string[];
+  hasVideo?: boolean;
+  items?: PlaylistItemDTO[];
+}

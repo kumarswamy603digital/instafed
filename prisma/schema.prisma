@@ -19,6 +19,7 @@ model User {
   updatedAt    DateTime       @updatedAt
   subscriptions Subscription[]
   sections      Section[]
+  playlists     Playlist[]
 }
 
 model Subscription {
@@ -67,4 +68,51 @@ model SectionChannel {
   @@unique([sectionId, subscriptionId])
   @@index([sectionId])
   @@index([subscriptionId])
+}
+
+
+// A user-defined playlist collecting videos across channels.
+model Playlist {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  position  Int            @default(0)
+  createdAt DateTime       @default(now())
+
+  items     PlaylistItem[]
+
+  @@index([userId])
+}
+
+// A saved video inside a playlist. Because videos come from Apify (not stored
+// in our DB), we snapshot the fields we need to render the card offline.
+model PlaylistItem {
+  id         String   @id @default(cuid())
+  playlistId String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+
+  // Video snapshot
+  videoKey        String // IgVideo.id — used to dedupe within a playlist
+  shortCode       String?
+  url             String
+  caption         String?
+  thumbnailUrl    String?
+  videoUrl        String?
+  durationSeconds Float?
+  viewsCount      Float?
+  likesCount      Float?
+  commentsCount   Float?
+  timestamp       String?
+
+  // Channel snapshot
+  channelUsername   String
+  channelFullName   String?
+  channelProfilePic String?
+  channelIsVerified Boolean @default(false)
+
+  addedAt DateTime @default(now())
+
+  @@unique([playlistId, videoKey])
+  @@index([playlistId])
 }
